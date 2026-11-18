@@ -25,7 +25,7 @@ const csvCell = (v) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-export function buildRows(users, conv, presence, evals, audits = {}) {
+export function buildRows(users, conv, presence, evals, audits = {}, compact = false) {
   const row = new Map();
   const get = (id) => {
     if (!row.has(id)) row.set(id, { loggedMs: 0, onQueueMs: 0, handledVoice: 0, handledOther: 0, outbound: 0, handleMs: 0, evaluations: 0 });
@@ -53,13 +53,15 @@ export function buildRows(users, conv, presence, evals, audits = {}) {
     get(g.evaluatorId).evaluations += m.stats?.count ?? 0;
   });
   const header = ['id', 'email', 'name', 'state', 'lastLogin', 'loggedHrs', 'onQueueHrs', 'handledVoice', 'handledOther', 'outbound', 'handleHrs', 'evaluationsDone', 'wfmChanges14d', 'qualityChanges14d'];
-  const lines = [header.join(',')];
+  const keep = compact ? header.map((h, i) => (['id', 'name', 'state'].includes(h) ? -1 : i)).filter((i) => i >= 0) : header.map((_, i) => i);
+  const lines = [keep.map((i) => header[i]).join(',')];
   for (const u of users) {
+    if (compact && u.state === 'deleted') continue;
     const r = row.get(u.id) || get(u.id);
     lines.push([
       u.id, u.email, u.name, u.state, u.dateLastLogin ? u.dateLastLogin.slice(0, 10) : '',
       hrs(r.loggedMs), hrs(r.onQueueMs), r.handledVoice, r.handledOther, r.outbound, hrs(r.handleMs), r.evaluations, audits.WorkforceManagement?.[u.id] ?? 0, audits.Quality?.[u.id] ?? 0,
-    ].map(csvCell).join(','));
+    ].map(csvCell).filter((_, i) => keep.includes(i)).join(','));
   }
   return lines.join('\n');
 }
@@ -70,7 +72,7 @@ export const ACTIVITY_TOOLS = [
     description: 'READ-ONLY. One CSV row per user for the last N days (default 30, max 31): last login date, hours logged in and on queue, interactions handled (voice / other), outbound attempts, handle hours, and quality evaluations done as evaluator. Use it to see who takes calls, who only logs in, and who uses WEM quality.',
     inputSchema: {
       type: 'object',
-      properties: { days: { type: 'number', description: 'Look-back window in days (1-31, default 30)' } },
+      properties: { days: { type: 'number', description: 'Look-back window in days (1-31, default 30)' }, compact: { type: 'boolean', description: 'Drop deleted users and the id/name/state columns' } },
       additionalProperties: false,
     },
     handler: async (gc, a) => {
@@ -114,7 +116,7 @@ export const ACTIVITY_TOOLS = [
           }
         } catch { /* audit permission missing: leave zeros */ }
       }
-      return { interval, users: users.length, truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals, audits) };
+      return { interval, users: users.length, truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals, audits, a.compact === true) };
     },
   },
 ];

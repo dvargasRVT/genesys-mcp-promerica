@@ -954,7 +954,7 @@ export const TOOLS = [
       // Virtual read-only route to the activity report, for MCP clients that
       // cached the tool list before user_activity_report existed.
       if (a.method === 'GET' && a.path === '/api/v2/mcp-reports/user-activity') {
-        return ACTIVITY_TOOLS[0].handler(gc, { days: Number(a.query?.days ?? 30) });
+        return ACTIVITY_TOOLS[0].handler(gc, { days: Number(a.query?.days ?? 30), compact: String(a.query?.compact) === 'true' });
       }
       return redactSecrets(await gc.api(a.method, a.path, { body: a.body, query: a.query }));
     },
