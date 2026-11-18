@@ -25,7 +25,7 @@ const csvCell = (v) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-export function buildRows(users, conv, presence, evals) {
+export function buildRows(users, conv, presence, evals, audits = {}) {
   const row = new Map();
   const get = (id) => {
     if (!row.has(id)) row.set(id, { loggedMs: 0, onQueueMs: 0, handledVoice: 0, handledOther: 0, outbound: 0, handleMs: 0, evaluations: 0 });
@@ -52,13 +52,13 @@ export function buildRows(users, conv, presence, evals) {
     if (!g.evaluatorId || m.metric !== 'nEvaluations') return;
     get(g.evaluatorId).evaluations += m.stats?.count ?? 0;
   });
-  const header = ['id', 'email', 'name', 'state', 'lastLogin', 'loggedHrs', 'onQueueHrs', 'handledVoice', 'handledOther', 'outbound', 'handleHrs', 'evaluationsDone'];
+  const header = ['id', 'email', 'name', 'state', 'lastLogin', 'loggedHrs', 'onQueueHrs', 'handledVoice', 'handledOther', 'outbound', 'handleHrs', 'evaluationsDone', 'wfmChanges14d', 'qualityChanges14d'];
   const lines = [header.join(',')];
   for (const u of users) {
     const r = row.get(u.id) || get(u.id);
     lines.push([
       u.id, u.email, u.name, u.state, u.dateLastLogin ? u.dateLastLogin.slice(0, 10) : '',
-      hrs(r.loggedMs), hrs(r.onQueueMs), r.handledVoice, r.handledOther, r.outbound, hrs(r.handleMs), r.evaluations,
+      hrs(r.loggedMs), hrs(r.onQueueMs), r.handledVoice, r.handledOther, r.outbound, hrs(r.handleMs), r.evaluations, audits.WorkforceManagement?.[u.id] ?? 0, audits.Quality?.[u.id] ?? 0,
     ].map(csvCell).join(','));
   }
   return lines.join('\n');
@@ -97,7 +97,24 @@ export const ACTIVITY_TOOLS = [
           interval, groupBy: ['evaluatorId'], metrics: ['nEvaluations'],
         });
       } catch (e) { evalError = e.message; }
-      return { interval, users: users.length, truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals) };
+      // Realtime audit (max 14 days): who changed WFM / Quality config.
+      const audits = {};
+      const end = new Date();
+      const auditInterval = `${new Date(end.getTime() - 14 * 86400000).toISOString()}/${end.toISOString()}`;
+      for (const serviceName of ['WorkforceManagement', 'Quality']) {
+        audits[serviceName] = {};
+        try {
+          for (let pageNumber = 1; pageNumber <= 30; pageNumber++) {
+            const r = await gc.post('/api/v2/audits/query/realtime', { interval: auditInterval, serviceName, pageSize: 100, pageNumber });
+            for (const e of r?.entities || []) {
+              const id = e.user?.id;
+              if (id) audits[serviceName][id] = (audits[serviceName][id] ?? 0) + 1;
+            }
+            if (!r?.pageCount || pageNumber >= r.pageCount) break;
+          }
+        } catch { /* audit permission missing: leave zeros */ }
+      }
+      return { interval, users: users.length, truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals, audits) };
     },
   },
 ];

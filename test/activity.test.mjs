@@ -22,6 +22,6 @@ test('buildRows joins users with conversation, presence and evaluation aggregate
   ] }] }] };
   const evals = { results: [{ group: { evaluatorId: 'u2' }, data: [{ metrics: [{ metric: 'nEvaluations', stats: { count: 3 } }] }] }] };
   const lines = buildRows(users, conv, presence, evals).split('\n');
-  assert.equal(lines[1], 'u1,a@x,"A, B",active,2026-11-18,2,0.5,10,2,4,1,0');
-  assert.equal(lines[2], 'u2,b@x,C,active,,0,0,0,0,0,0,3');
+  assert.equal(lines[1], 'u1,a@x,"A, B",active,2026-11-18,2,0.5,10,2,4,1,0,0,0');
+  assert.equal(lines[2], 'u2,b@x,C,active,,0,0,0,0,0,0,3,0,0');
 });
