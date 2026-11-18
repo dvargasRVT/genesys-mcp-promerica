@@ -52,7 +52,7 @@ export function buildRows(users, conv, presence, evals, audits = {}, compact = f
     if (!g.evaluatorId || m.metric !== 'nEvaluations') return;
     get(g.evaluatorId).evaluations += m.stats?.count ?? 0;
   });
-  const header = ['id', 'email', 'name', 'state', 'lastLogin', 'loggedHrs', 'onQueueHrs', 'handledVoice', 'handledOther', 'outbound', 'handleHrs', 'evaluationsDone', 'wfmChanges14d', 'qualityChanges14d'];
+  const header = ['id', 'email', 'name', 'state', 'lastLogin', 'loggedHrs', 'onQueueHrs', 'handledVoice', 'handledOther', 'outbound', 'handleHrs', 'evaluationsDone', 'wfmChanges14d', 'qualityChanges14d', 'coachingGiven', 'coachingReceived'];
   const keep = compact ? header.map((h, i) => (['id', 'name', 'state'].includes(h) ? -1 : i)).filter((i) => i >= 0) : header.map((_, i) => i);
   const lines = [keep.map((i) => header[i]).join(',')];
   for (const u of users) {
@@ -60,7 +60,7 @@ export function buildRows(users, conv, presence, evals, audits = {}, compact = f
     const r = row.get(u.id) || get(u.id);
     lines.push([
       u.id, u.email, u.name, u.state, u.dateLastLogin ? u.dateLastLogin.slice(0, 10) : '',
-      hrs(r.loggedMs), hrs(r.onQueueMs), r.handledVoice, r.handledOther, r.outbound, hrs(r.handleMs), r.evaluations, audits.WorkforceManagement?.[u.id] ?? 0, audits.Quality?.[u.id] ?? 0,
+      hrs(r.loggedMs), hrs(r.onQueueMs), r.handledVoice, r.handledOther, r.outbound, hrs(r.handleMs), r.evaluations, audits.WorkforceManagement?.[u.id] ?? 0, audits.Quality?.[u.id] ?? 0, audits.coachingGiven?.[u.id] ?? 0, audits.coachingReceived?.[u.id] ?? 0,
     ].map(csvCell).filter((_, i) => keep.includes(i)).join(','));
   }
   return lines.join('\n');
@@ -116,7 +116,28 @@ export const ACTIVITY_TOOLS = [
           }
         } catch { /* audit permission missing: leave zeros */ }
       }
-      return { interval, users: users.length, truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals, audits, a.compact === true) };
+      // Coaching appointments in the window (needs Coaching > Appointment > View).
+      let coachingError;
+      audits.coachingGiven = {}; audits.coachingReceived = {};
+      try {
+        const seen = new Set();
+        const active = users.filter((u) => u.state !== 'deleted');
+        for (let i = 0; i < active.length; i += 50) {
+          const ids = active.slice(i, i + 50).map((u) => u.id).join(',');
+          for (let pageNumber = 1; pageNumber <= 50; pageNumber++) {
+            const r = await gc.get('/api/v2/coaching/appointments', { userIds: ids, interval, pageSize: 100, pageNumber });
+            for (const ap of r?.entities || []) {
+              if (seen.has(ap.id)) continue;
+              seen.add(ap.id);
+              const giver = ap.facilitator?.id || ap.createdBy?.id;
+              if (giver) audits.coachingGiven[giver] = (audits.coachingGiven[giver] ?? 0) + 1;
+              for (const at of ap.attendees || []) if (at?.id) audits.coachingReceived[at.id] = (audits.coachingReceived[at.id] ?? 0) + 1;
+            }
+            if (!r?.pageCount || pageNumber >= r.pageCount) break;
+          }
+        }
+      } catch (e) { coachingError = e.message; }
+      return { interval, users: users.length, ...(coachingError ? { coachingError } : {}), truncated, ...(evalError ? { evaluationsError: evalError } : {}), csv: buildRows(users, conv, presence, evals, audits, a.compact === true) };
     },
   },
 ];
