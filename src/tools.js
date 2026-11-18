@@ -11,6 +11,7 @@ import { validateFlowSpec, specToArchyYaml, specToMermaid, configToMermaid, FLOW
 import { composeAttemptLimits, composeCallableTimeSet, composeContactList, cadenceToMermaid, DIALING_MODES } from './outbound.js';
 import { AVA_TOOLS, AVA_WRITE_TOOLS, AVA_TOOL_GROUP } from './ava-tools.js';
 import { VOICE_TOOLS, VOICE_WRITE_TOOLS, VOICE_TOOL_GROUP } from './voice-tools.js';
+import { ACTIVITY_TOOLS } from './activity.js';
 import { refusalFor, redactSecrets, redactNamedValues, redactArchyYaml } from './rules.js';
 
 // ---------- name → object resolution helpers ----------
@@ -957,6 +958,7 @@ export const TOOLS = [
   // ----- agentic virtual agents (see ava-tools.js) -----
   ...AVA_TOOLS,
   ...VOICE_TOOLS,
+  ...ACTIVITY_TOOLS,
 ];
 
 // ---------- registry plumbing ----------
@@ -996,7 +998,7 @@ export const WRITE_TOOLS = new Set([
 export const TOOL_GROUPS = [
   { name: 'Org & Connection', icon: '🔌', tools: ['about', 'check_connection', 'list_divisions', 'list_did_pools'] },
   { name: 'Queues & Routing', icon: '📞', tools: ['list_queues', 'get_queue', 'create_queue', 'list_wrapup_codes', 'create_wrapup_code'] },
-  { name: 'Users & Skills', icon: '👥', tools: ['list_users', 'get_user', 'list_skills', 'create_skill', 'assign_user_skill'] },
+  { name: 'Users & Skills', icon: '👥', tools: ['list_users', 'get_user', 'user_activity_report', 'list_skills', 'create_skill', 'assign_user_skill'] },
   { name: 'Schedules & Hours', icon: '🕐', tools: ['list_schedules', 'create_schedule', 'create_schedule_group'] },
   { name: 'Outbound (Campaigns & Cadences)', icon: '📤', tools: ['list_contact_lists', 'get_contact_list', 'create_contact_list', 'add_contacts', 'create_attempt_limits', 'create_callable_time_set', 'create_dnc_list', 'list_campaigns', 'get_campaign', 'create_campaign', 'create_campaign_sequence', 'list_outbound_assets', 'render_cadence'] },
   { name: 'Flows (Architect)', icon: '🌳', tools: ['list_flows', 'get_flow', 'get_flow_configuration', 'list_prompts', 'render_flow', 'export_flow'] },
