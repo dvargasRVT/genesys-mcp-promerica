@@ -80,9 +80,16 @@ export const ACTIVITY_TOOLS = [
       const conv = await gc.post('/api/v2/analytics/conversations/aggregates/query', {
         interval, groupBy: ['userId', 'mediaType'], metrics: ['tHandle', 'nOutbound'],
       });
-      const presence = await gc.post('/api/v2/analytics/users/aggregates/query', {
-        interval, groupBy: ['userId'], metrics: ['tSystemPresence', 'tAgentRoutingStatus'],
-      });
+      // The users aggregate endpoint requires a filter: query in batches of 100 ids.
+      const presence = { results: [] };
+      for (let i = 0; i < users.length; i += 100) {
+        const ids = users.slice(i, i + 100).map((u) => u.id);
+        const r = await gc.post('/api/v2/analytics/users/aggregates/query', {
+          interval, groupBy: ['userId'], metrics: ['tSystemPresence', 'tAgentRoutingStatus'],
+          filter: { type: 'or', predicates: ids.map((id) => ({ dimension: 'userId', value: id })) },
+        });
+        presence.results.push(...(r?.results || []));
+      }
       let evals = null;
       let evalError;
       try {
