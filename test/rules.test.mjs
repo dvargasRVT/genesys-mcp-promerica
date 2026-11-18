@@ -200,7 +200,9 @@ test('the write allowlist refuses everything outside the typed families', () => 
   refused('POST', '/api/v2/architect/datatables', {});
   refused('POST', '/api/v2/integrations', { integrationType: { id: 'x' } });
   refused('POST', '/api/v2/outbound/callanalysisresponsesets', {});
-  refused('POST', '/api/v2/analytics/conversations/details/query', {});
+  refused('POST', '/api/v2/analytics/conversations/details/jobs', {});
+  refused('POST', '/api/v2/analytics/reporting/exports', {});
+  refused('POST', '/api/v2/audits/query', {});
   refused('POST', '/api/v2/webhooks', {});
   refused('POST', '/api/v2/routing/sms/phonenumbers', {});
   refused('PUT', `/api/v2/routing/skills/${G}`, {});
@@ -235,6 +237,16 @@ test('the allowlist still permits the build writes the typed tools do', () => {
   allowed('POST', '/api/v2/integrations/actions/drafts', { name: 'x' });
   allowed('POST', `/api/v2/integrations/actions/custom_-_${G}/draft/publish`, { version: 1 });
   assert.ok(WRITE_FAMILIES.length > 10);
+});
+
+test('read-only analytics and audit queries are allowed', () => {
+  allowed('POST', '/api/v2/analytics/conversations/aggregates/query', { interval: 'x', groupBy: ['userId'] });
+  allowed('POST', '/api/v2/analytics/conversations/details/query', { interval: 'x' });
+  allowed('POST', '/api/v2/analytics/users/aggregates/query', { interval: 'x' });
+  allowed('POST', '/api/v2/analytics/users/details/query', { interval: 'x' });
+  allowed('POST', '/api/v2/analytics/evaluations/aggregates/query', { interval: 'x' });
+  allowed('POST', '/api/v2/audits/query/realtime', { interval: 'x', serviceName: 'Quality' });
+  refused('PUT', '/api/v2/analytics/conversations/aggregates/query', {});
 });
 
 test('non-object bodies and absurd nesting are refused', () => {

@@ -113,6 +113,15 @@ export const WRITE_FAMILIES = [
   ['AVA test chat sessions', [['POST', 'apps/agentic/virtualagents/{id}/sessions'], ['POST', 'apps/agentic/virtualagents/{id}/sessions/{id}/turns']]],
   ['knowledge sources, synchronizations, settings', [['POST', 'knowledge/sources'], ['POST', 'knowledge/sources/{id}/synchronizations'], ['PATCH', 'knowledge/sources/{id}/synchronizations/{id}'], ['POST', 'knowledge/sources/{id}/synchronizations/{id}/uploads'], ['POST', 'knowledge/settings'], ['PATCH', 'knowledge/settings/{id}']]],
   ['integrations data action drafts', [['POST', 'integrations/actions/drafts'], ['PATCH', 'integrations/actions/{id}/draft'], ['POST', 'integrations/actions/{id}/draft/publish']]],
+  // Read-only queries that Genesys exposes as POST (the body is the query, nothing
+  // is created or changed). Exact paths only: no analytics/reporting exports,
+  // schedules, or jobs that persist anything.
+  ['analytics + audit read-only queries', [
+    ['POST', 'analytics/conversations/aggregates/query'], ['POST', 'analytics/conversations/details/query'],
+    ['POST', 'analytics/users/aggregates/query'], ['POST', 'analytics/users/details/query'],
+    ['POST', 'analytics/evaluations/aggregates/query'], ['POST', 'analytics/surveys/aggregates/query'],
+    ['POST', 'audits/query/realtime'],
+  ]],
 ];
 
 const WRITES = WRITE_FAMILIES.flatMap(([, pairs]) => pairs.map(([m, p]) => [m, R(p)]));
